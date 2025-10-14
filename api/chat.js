@@ -1,38 +1,30 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
 import fetch from "node-fetch";
 
-dotenv.config();
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
+  }
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-app.post("/chat", async (req, res) => {
   const { message } = req.body;
 
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        // 🔥 Perbaikan di sini → pakai backtick dan template literal
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3.1-8b-instruct:free", // model gratis di OpenRouter
+        model: "meta-llama/llama-3.1-8b-instruct:free",
         messages: [{ role: "user", content: message }],
       }),
     });
 
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content || "⚠️ AI tidak memberikan respons.";
-    res.json({ reply });
+    res.status(200).json({ reply });
   } catch (error) {
     console.error(error);
-    res.json({ reply: "⚠️ Terjadi kesalahan saat menghubungi AI." });
+    res.status(500).json({ reply: "⚠️ Terjadi kesalahan saat menghubungi AI." });
   }
-});
-
-app.listen(3000, () => console.log("🤖 Server chatbot aktif di http://localhost:3000"));
+}
