@@ -21,10 +21,10 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "⚠ AI tidak memberikan respons.";
+    const reply = data.choices?.[0]?.message?.content || "⚠️ AI tidak memberikan respons.";
     res.status(200).json({ reply });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ reply: "⚠ Terjadi kesalahan saat menghubungi AI." });
+    res.status(500).json({ reply: "⚠️ Terjadi kesalahan saat menghubungi AI." });
   }
 }
