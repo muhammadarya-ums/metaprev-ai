@@ -1,30 +1,63 @@
-const fetch = require("node-fetch");
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
 
-module.exports = async (req, res) => {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+export default async function handler(req, res) {
+  console.log("✅ Request masuk:", req.method);
 
-  const { message } = req.body;
+  // ✅ CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const { message } = req.body || {};
+  if (!message) return res.status(400).json({ error: "Message is required" });
+
+  // 🌐 Tentukan BASE_URL yang benar
+  const BASE_URL =
+    process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.DEPLOYMENT_URL ||
+        req.headers.origin ||
+        "https://metaprev.vercel.app"; // fallback default
+
+  console.log("🌐 BASE_URL:", BASE_URL);
+
+  // 🔍 Deteksi apakah permintaan berita
+  const isNewsRequest = /(berita( terkini| terbaru| terupdate)?( tentang)? (kesehatan|medis|dunia))/i.test(
+    message.toLowerCase()
+  );
 
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const endpoint = isNewsRequest ? "news" : "ai";
+    const fullURL = `${BASE_URL}/api/${endpoint}`;
+    console.log(`🔁 Meneruskan ke ${fullURL}`);
+
+    const response = await fetch(fullURL, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "meta-llama/llama-3.1-8b-instruct:free",
-        messages: [{ role: "user", content: message }],
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
     });
 
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "⚠️ AI tidak memberikan respons.";
-    res.status(200).json({ reply });
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { reply: text };
+    }
+
+    console.log("✅ Respons dari /api/" + endpoint, data);
+    return res.status(response.status).json(data);
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ reply: "⚠️ Terjadi kesalahan saat menghubungi AI." });
+    console.error("🔥 Error utama di /api/chat:", error);
+    return res.status(500).json({
+      reply: "⚠️ Terjadi kesalahan saat memproses permintaan.",
+    });
   }
-};
+}
